@@ -14,14 +14,30 @@ export class HttpError extends Error {
     }
 }
 
-router.get("/user", async (request, env, context) => {
+function base64url(str) {
+    return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function assembleJwt(claims, secret) {
+    let claims_64 = base64url(JSON.stringify(claims));
+    let header_64 = base64url(JSON.stringify({ "alg": "HS256", "typ": "JWT" }));
+    let preamble = header_64 + "." + claims_64;
+
+    let enc = new TextEncoder;
+    let ckey = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [ "sign" ]);
+    let sig = await crypto.subtle.sign({ name: "HMAC" }, ckey, enc.encode(preamble));
+
+    let sig_64 = base64url(String.fromCharCode(...new Uint8Array(sig)));
+    return preamble + "." + sig_64;
+}
+
+router.get("/token", async (request, env, context) => {
     let auth = request.headers.get("Authorization");
     if (auth == null || !auth.startsWith("Bearer ")) {
         throw HttpError("expected a token in the 'Authorization' header", 401);
     }
 
     let token = auth.slice(7);
-
     let headers = {
         "Authorization": "Bearer " + token,
         "User-Agent": user_agent
@@ -62,27 +78,35 @@ router.get("/user", async (request, env, context) => {
         }
     }
 
-    let output = {
-        user: body_self.login,
+    let now = Date.now();
+    let claims = {
+        iss: "GitHub-roles",
+        aud: "CollaboratorDB",
+        sub: body_self.login,
         roles: roles,
-        expiry: null
+        iat: now,
+        exp: now + (24 * 60 * 60 * 1000) // 24 hours until expiry.
     };
 
-    let expiry = resp_self.headers.get("github-authentication-token-expiration");
-    if (expiry !== null) {
-        try {
-            let d = new Date(expiry);
-            let actual = d.toISOString();
-            output.expiry = actual;
-        } finally {}
-    }
+    let jwt = await assembleJwt(claims, env.HS256_SECRET);
+    let output = { 
+        token: jwt,
+        expires_at: (new Date(claims.exp)).toISOString()
+    };
 
-    return new Response(JSON.stringify(output, null, 4), { status: 200, "Content-Type": "application/json" });
-})
+    return new Response(
+        JSON.stringify(output, null, 4), 
+        { 
+            status: 200, 
+            "Content-Type": "application/json" 
+        }
+    );
+});
 
 export default {
     fetch: (request, env, context) => router.handle(request, env, context).catch(e => {
-        return new Response(JSON.stringify({ "error": e.message }), 
+        return new Response(
+            JSON.stringify({ "error": e.message }), 
             { 
                 status: (e instanceof HttpError ? e.statusCode : 500),
                 headers: { "Content-Type": "application/json" }
