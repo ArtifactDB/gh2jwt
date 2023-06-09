@@ -15,6 +15,33 @@ export class HttpError extends Error {
     }
 }
 
+router.get("/.well-known/openid-configuration", async (request, env, context) => {
+    let base = request.url.replace(/\/\.well-known\/openid-configuration/, "");
+    let resp = {
+        "issuer": base,
+        "jwks_uri": base + "/.well-known/jwks.json",
+        "token_endpoint": base + "/token",
+    };
+
+    return new Response(
+        JSON.stringify(resp, null, 4), 
+        { 
+            status: 200, 
+            "Content-Type": "application/json" 
+        }
+    );
+})
+
+router.get("/.well-known/jwks.json", async (request, env, context) => {
+    return new Response(
+        env.PUBLIC_KEY,
+        { 
+            status: 200, 
+            "Content-Type": "application/json" 
+        }
+    );
+})
+
 router.get("/token", async (request, env, context) => {
     let auth = request.headers.get("Authorization");
     if (auth == null || !auth.startsWith("Bearer ")) {
