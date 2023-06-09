@@ -1,4 +1,5 @@
-import { Router } from 'itty-router'
+import { Router } from 'itty-router';
+import * as jose from 'jose';
 
 const api = "https://api.github.com";
 const user_agent = "CollaboratorDB identifier";
@@ -12,23 +13,6 @@ export class HttpError extends Error {
         super(message);
         this.statusCode = code;
     }
-}
-
-function base64url(str) {
-    return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-async function assembleJwt(claims, secret) {
-    let claims_64 = base64url(JSON.stringify(claims));
-    let header_64 = base64url(JSON.stringify({ "alg": "HS256", "typ": "JWT" }));
-    let preamble = header_64 + "." + claims_64;
-
-    let enc = new TextEncoder;
-    let ckey = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [ "sign" ]);
-    let sig = await crypto.subtle.sign({ name: "HMAC" }, ckey, enc.encode(preamble));
-
-    let sig_64 = base64url(String.fromCharCode(...new Uint8Array(sig)));
-    return preamble + "." + sig_64;
 }
 
 router.get("/token", async (request, env, context) => {
@@ -88,7 +72,13 @@ router.get("/token", async (request, env, context) => {
         exp: now + (24 * 60 * 60 * 1000) // 24 hours until expiry.
     };
 
-    let jwt = await assembleJwt(claims, env.HS256_SECRET);
+    const alg = "RS256";
+    const privateKey = await jose.importPKCS8(env.PRIVATE_KEY, alg);
+
+    const jwt = await new jose.SignJWT(claims)
+      .setProtectedHeader({ alg })
+      .sign(privateKey);
+
     let output = { 
         token: jwt,
         expires_at: (new Date(claims.exp)).toISOString()
