@@ -27,16 +27,25 @@ Decoding the JWT yields the following claims:
   "iss": "GitHub-roles",
   "aud": "CollaboratorDB",
   "sub": "ArtifactDB-bot",
-  "roles": [
-    "admin"
-  ],
+  "resource_access": {
+    "CollaboratorDB": [
+      "admin",
+      "creator",
+      "uploader"
+    ],
+    "DemoDB": [
+      "admin",
+      "creator",
+      "uploader"
+    ]
+  },
   "iat": 1686344899854,
   "exp": 1686431299854
 }
 ```
 
 Of particular interest is the `sub`, which contains the GitHub user associated with the PAT;
-and `roles`, which specifies the roles for this user on CollaboratorDB.
+and `resource_access`, which specifies the roles for this user on CollaboratorDB (and its DemoDB alias).
 
 **Important:**
 
