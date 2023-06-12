@@ -11,7 +11,7 @@ To use, simply call the API with the GitHub PAT in the `Authorization` header:
 
 ```console
 $ URL=https://collaboratordb-gh-roles.aaron-lun.workers.dev/token
-$ curl -L ${URL} -H "Authorization: Bearer ghp_XXXX"
+$ curl -X POST -L ${URL} -H "Authorization: Bearer ghp_XXXX"
 {
     "token": "OUTPUT_TOKEN_HERE",
     "expires_at": "2023-06-10T21:08:19.854Z"

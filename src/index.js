@@ -42,10 +42,10 @@ router.get("/.well-known/jwks.json", async (request, env, context) => {
     );
 })
 
-router.get("/token", async (request, env, context) => {
+router.post("/token", async (request, env, context) => {
     let auth = request.headers.get("Authorization");
     if (auth == null || !auth.startsWith("Bearer ")) {
-        throw HttpError("expected a token in the 'Authorization' header", 401);
+        throw new HttpError("expected a token in the 'Authorization' header", 401);
     }
 
     let token = auth.slice(7);
@@ -94,7 +94,10 @@ router.get("/token", async (request, env, context) => {
         iss: "GitHub-roles",
         aud: "CollaboratorDB",
         sub: body_self.login,
-        roles: roles,
+        resource_access: {
+            CollaboratorDB: roles,
+            DemoDB: roles
+        },
         iat: now,
         exp: now + (24 * 60 * 60 * 1000) // 24 hours until expiry.
     };
@@ -103,7 +106,7 @@ router.get("/token", async (request, env, context) => {
     const privateKey = await jose.importPKCS8(env.PRIVATE_KEY, alg);
 
     const jwt = await new jose.SignJWT(claims)
-      .setProtectedHeader({ alg })
+      .setProtectedHeader({ alg, typ: "JWT" })
       .sign(privateKey);
 
     let output = { 
