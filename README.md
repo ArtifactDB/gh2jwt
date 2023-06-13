@@ -1,39 +1,46 @@
-# GitHub roles for CollaboratorDB
+# GitHub to JSON web token
 
-This is a Cloudflare Worker that provides a one-stop shop for extracting CollaboratorDB roles from a GitHub personal access token (PAT).
-The aim is to mimic the roles that are present in a Keycloak token, based on teams in the [CollaboratorDB](https://github.com/CollaboratorDB) organization:
+## Overview
 
-- [Administrators](https://github.com/orgs/CollaboratorDB/teams/admins), with the all-powerful `admin` role.
-- [Creators](https://github.com/orgs/CollaboratorDB/teams/creators), with the `creator` role to create new projects.
-- [Uploaders](https://github.com/orgs/CollaboratorDB/teams/uploaders), with the `uploader` role to upload new versions of existing projects.
+This repository implements a Cloudflare Worker that provides a one-stop shop for creating a JSON web token (JWT) from a GitHub personal access token (PAT).
+The JWT includes **ArtifactDB**-related roles based on GitHub teams with the following names:
 
-To use, simply call the API with the GitHub PAT in the `Authorization` header:
+- `ArtifactDB-admins`, with the all-powerful `admin` role.
+- `ArtifactDB-creators`, with the `creator` role to create new projects.
+- `ArtifactDB-uploaders`, with the `uploader` role to upload new versions of existing projects.
+
+Check out the [CollaboratorDB](https://github.com/orgs/CollaboratorDB/teams) organization for examples of these teams.
+However, any GitHub organization can set up similarly-named teams for use with the **gh2jwt** API.
+
+## Usage
+
+Call the **gh2jwt** API with a valid GitHub PAT in the `Authorization` header and a JSON body containing:
+
+- `orgs`: an array of strings containing the GitHub organizations to query for team membership.
+- `to`: a string specifying the intended consumer of the resulting JWT.
 
 ```console
-$ URL=https://collaboratordb-gh-roles.aaron-lun.workers.dev/token
-$ curl -X POST -L ${URL} -H "Authorization: Bearer ghp_XXXX"
+$ curl -X POST https://gh2jwt.aaron-lun.workers.dev/token \
+>     -H "Authorization: Bearer ghp_XXXX" \
+>     -d '{ "orgs": [ "CollaboratorDB" ], "to": "someone" }' \
+>     -H "Content-Type: application/json"
 {
     "token": "OUTPUT_TOKEN_HERE",
     "expires_at": "2023-06-10T21:08:19.854Z"
 }
 ```
 
-This returns a JSON web token (JWT) in the `token` property along with the expiry time for that JWT (specifically, 24 hours after generation).
-The JWT is signed using RS256, and the associated public key is available from [OpenID configuration endpoint](https://collaboratordb-gh-roles.aaron-lun.workers.dev/.well-known/openid-configuration).
+This returns a JWT in the `token` property along with the expiry time for that JWT (specifically, 24 hours after generation).
+The JWT is signed using RS256, and the associated public key is available from [OpenID configuration endpoint](https://gh2jwt.aaron-lun.workers.dev/.well-known/openid-configuration).
 Decoding the JWT yields the following claims:
 
 ```json
 {
-  "iss": "GitHub-roles",
-  "aud": "CollaboratorDB",
+  "iss": "https://gh2jwt.aaron-lun.workers.dev",
+  "aud": "someone",
   "sub": "ArtifactDB-bot",
   "resource_access": {
     "CollaboratorDB": [
-      "admin",
-      "creator",
-      "uploader"
-    ],
-    "DemoDB": [
       "admin",
       "creator",
       "uploader"
@@ -45,9 +52,10 @@ Decoding the JWT yields the following claims:
 ```
 
 Of particular interest is the `sub`, which contains the GitHub user associated with the PAT;
-and `resource_access`, which specifies the roles for this user on CollaboratorDB (and its DemoDB alias).
+and `resource_access`, which specifies the roles for this user on CollaboratorDB.
 
-**Important:**
+## Further comments
 
 - The PAT must be created with the `read:org` and `read:user` scopes.
+  Applications can facilitate this process by using GitHub's [OAuth workflow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
 - Some client-side caching may be desirable due to [rate limits](https://docs.github.com/en/rest/overview/resources-in-the-rest-api?apiVersion=2022-11-28#rate-limiting) on GitHub API requests.

@@ -2,8 +2,7 @@ import { Router } from 'itty-router';
 import * as jose from 'jose';
 
 const api = "https://api.github.com";
-const user_agent = "CollaboratorDB identifier";
-const org_name = "CollaboratorDB";
+const user_agent = "Aaron's gh2jwt Cloudflare worker";
 
 // Create a new router
 const router = Router();
@@ -48,6 +47,33 @@ router.post("/token", async (request, env, context) => {
         throw new HttpError("expected a token in the 'Authorization' header", 401);
     }
 
+    // Fetch the requested orgs.
+    let body;
+    try {
+        body = await request.json();
+    } catch (err) {
+        throw new HttpError("could not parse JSON request", 400);
+    }
+
+    if (!("orgs" in body)) {
+        throw new HttpError("expected 'orgs' property in the request body", 400);
+    }
+    let orgs = body.orgs;
+
+    if (!(orgs instanceof Array)) {
+        throw new HttpError("expected 'orgs' array in the request body", 400);
+    }
+    for (const x of orgs) {
+        if (typeof x !== "string") {
+            throw new HttpError("expected 'orgs' to be an array of strings in the request body", 400);
+        }
+    }
+
+    // Fetch the intended audience.
+    if (typeof body.to !== "string") {
+        throw new HttpError("expected 'to' to be a string in the request body", 400);
+    }
+
     let token = auth.slice(7);
     let headers = {
         "Authorization": "Bearer " + token,
@@ -55,49 +81,53 @@ router.post("/token", async (request, env, context) => {
     };
 
     // Identify the user and the teams to which they belong.
-    let responses = await Promise.all([
-        fetch(api + "/user", { headers }),
-        fetch(api + "/orgs/" + org_name + "/teams", { headers })
-    ]);
+    let requests = [ fetch(api + "/user", { headers }) ];
+    for (const x of orgs) {
+        requests.push(fetch(api + "/orgs/" + x + "/teams", { headers }));
+    }
+    let responses = await Promise.all(requests);
 
     let resp_self = responses[0];
-    let resp_teams = responses[1];
     if (!resp_self.ok) {
-        throw HttpError("failed to identify the GitHub user", resp_self.statusCode);
+        throw new HttpError("failed to identify the GitHub user", 403);
     }
     let body_self = await resp_self.json();
+    let user_name = body_self.login;
 
-    let roles = [];
-    if (resp_teams.ok) {
-        let check = [];
-        let preroles = [];
+    let all_roles = {};
+    for (var o = 0; o < orgs.length; ++o) {
+        let resp_teams = responses[o + 1];
+        let roles = [];
+        all_roles[orgs[o]] = roles;
 
-        let body_teams = await resp_teams.json();
-        for (const x of body_teams) {
-            if (x.name == "admins" || x.name == "creators" || x.name == "uploaders") {
-                preroles.push(x.name.replace(/s$/, ""));
-                let target = x.members_url.replace(/{\/member}$/, "/" + body_self.login);
-                check.push(fetch(target, { headers }));
+        if (resp_teams.ok) {
+            let check = [];
+            let preroles = [];
+
+            let body_teams = await resp_teams.json();
+            for (const x of body_teams) {
+                if (x.name.match(/^ArtifactDB-.*s$/)) {
+                    preroles.push(x.name.replace(/^ArtifactDB-/, "").replace(/s$/, ""));
+                    let target = x.members_url.replace(/{\/member}$/, "/" + user_name);
+                    check.push(fetch(target, { headers }));
+                }
             }
-        }
 
-        let resolved = await Promise.all(check);
-        for (var i = 0; i < resolved.length; ++i) {
-            if (resolved[i].ok) {
-                roles.push(preroles[i]);
+            let resolved = await Promise.all(check);
+            for (var i = 0; i < resolved.length; ++i) {
+                if (resolved[i].ok) {
+                    roles.push(preroles[i]);
+                }
             }
         }
     }
 
     let now = Date.now();
     let claims = {
-        iss: "GitHub-roles",
-        aud: "CollaboratorDB",
-        sub: body_self.login,
-        resource_access: {
-            CollaboratorDB: roles,
-            DemoDB: roles
-        },
+        iss: request.url.replace(/\/token/, ""),
+        aud: body.to,
+        sub: user_name,
+        resource_access: all_roles,
         iat: now,
         exp: now + (24 * 60 * 60 * 1000) // 24 hours until expiry.
     };

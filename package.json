@@ -1,6 +1,6 @@
 {
-  "name": "collaboratordb-github-roles",
-  "version": "0.0.0",
+  "name": "gh2jwt",
+  "version": "0.1.0",
   "devDependencies": {
     "wrangler": "2.5.0"
   },
