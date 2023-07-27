@@ -20,6 +20,7 @@ router.get("/.well-known/openid-configuration", async (request, env, context) =>
         "issuer": base,
         "jwks_uri": base + "/.well-known/jwks.json",
         "token_endpoint": base + "/token",
+        "authorization_endpoint": "https://google.com" // dunno why we need this, but need to avoid some issue on ArtifactDB's side.
     };
 
     return new Response(
