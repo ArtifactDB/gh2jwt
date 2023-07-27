@@ -122,6 +122,9 @@ router.post("/token", async (request, env, context) => {
         }
     }
 
+    // TODO: can we get this created at launch time?
+    const public_key = (env.PUBLIC_KEY ? JSON.parse(env.PUBLIC_KEY) : { keys: [ { kid: "" } ] });
+
     let now = Date.now();
     let claims = {
         iss: request.url.replace(/\/token/, ""),
@@ -130,6 +133,8 @@ router.post("/token", async (request, env, context) => {
         client_id: body.to,
         sub: user_name,
         resource_access: all_roles,
+        jti: crypto.randomUUID(),
+        kid: public_key.keys[0].kid,
         iat: now,
         exp: now + (24 * 60 * 60 * 1000) // 24 hours until expiry.
     };
