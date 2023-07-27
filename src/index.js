@@ -129,6 +129,7 @@ router.post("/token", async (request, env, context) => {
         azp: body.to,
         client_id: body.to,
         sub: user_name,
+        preferred_username: user_name,
         resource_access: all_roles,
         jti: crypto.randomUUID(),
         iat: now,
