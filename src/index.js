@@ -98,7 +98,7 @@ router.post("/token", async (request, env, context) => {
     for (var o = 0; o < orgs.length; ++o) {
         let resp_teams = responses[o + 1];
         let roles = [];
-        all_roles[orgs[o]] = roles;
+        all_roles[orgs[o]] = { roles: roles };
 
         if (resp_teams.ok) {
             let check = [];
@@ -126,6 +126,8 @@ router.post("/token", async (request, env, context) => {
     let claims = {
         iss: request.url.replace(/\/token/, ""),
         aud: body.to,
+        azp: body.to,
+        client_id: body.to,
         sub: user_name,
         resource_access: all_roles,
         iat: now,

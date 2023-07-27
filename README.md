@@ -22,7 +22,7 @@ Call the **gh2jwt** API with a valid GitHub PAT in the `Authorization` header an
 ```console
 $ curl -X POST https://gh2jwt.aaron-lun.workers.dev/token \
 >     -H "Authorization: Bearer ghp_XXXX" \
->     -d '{ "orgs": [ "CollaboratorDB" ], "to": "someone" }' \
+>     -d '{ "orgs": [ "CollaboratorDB" ], "to": "CLIENT_ID_HERE" }' \
 >     -H "Content-Type: application/json"
 {
     "token": "OUTPUT_TOKEN_HERE",
@@ -37,13 +37,17 @@ Decoding the JWT yields the following claims:
 ```json
 {
   "iss": "https://gh2jwt.aaron-lun.workers.dev",
-  "aud": "someone",
+  "aud": "CLIENT_ID_HERE",
+  "azp": "CLIENT_ID_HERE",
+  "client_id": "CLIENT_ID_HERE",
   "sub": "ArtifactDB-bot",
   "resource_access": {
     "CollaboratorDB": [
-      "admin",
-      "creator",
-      "uploader"
+      "roles": [
+        "admin",
+        "creator",
+        "uploader"
+      ]
     ]
   },
   "iat": 1686344899854,
