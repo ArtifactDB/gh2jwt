@@ -27,7 +27,7 @@ router.get("/.well-known/openid-configuration", async (request, env, context) =>
         JSON.stringify(resp, null, 4), 
         { 
             status: 200, 
-            "Content-Type": "application/json" 
+            headers: { "Content-Type": "application/json" }
         }
     );
 })
@@ -37,7 +37,7 @@ router.get("/.well-known/jwks.json", async (request, env, context) => {
         env.PUBLIC_KEY,
         { 
             status: 200, 
-            "Content-Type": "application/json" 
+            headers: { "Content-Type": "application/json" }
         }
     );
 })
@@ -154,7 +154,7 @@ router.post("/token", async (request, env, context) => {
         JSON.stringify(output, null, 4), 
         { 
             status: 200, 
-            "Content-Type": "application/json" 
+            headers: { "Content-Type": "application/json" }
         }
     );
 });
