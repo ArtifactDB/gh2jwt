@@ -159,6 +159,17 @@ router.post("/token", async (request, env, context) => {
     );
 });
 
+router.get("/.github-app-info", async (request, env, context) => {
+    return new Response(
+        JSON.stringify({ key: env.GITHUB_APP_KEY, secret: env.GITHUB_APP_SECRET }, null, 4), 
+        { 
+            status: 200, 
+            headers: { "Content-Type": "application/json" }
+        }
+
+    );
+});
+
 export default {
     fetch: (request, env, context) => router.handle(request, env, context).catch(e => {
         return new Response(
